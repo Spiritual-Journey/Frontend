@@ -57,13 +57,13 @@ const Home: React.FC = () => {
                 የክርስቶስ ፀጋና ሰላም ከእናንተ ጋር ይሁን ዉድ የእግዚአብሄር ቤተሰቦች። ለመስከረም 10 ወደ ቤዛዊተ ማርያም ገዳም አጭር መንፈሳዊ ጉዞ ስላዘጋጀን ለእሑድ ጊዜዎን መድበው እንዲጠብቁን በእግዚአብሔር ስም እንጠይቃለን።
               </p>
               
-              <div className="flex flex-col sm:flex-row items-center gap-5 justify-center lg:justify-start">
-                <button className="w-full sm:w-auto bg-primary-800 hover:bg-primary-900 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all shadow-xl hover:shadow-primary-800/30 flex items-center justify-center gap-3">
+              <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start w-full px-4 sm:px-0">
+                <button className="w-full sm:w-auto bg-primary-800 hover:bg-primary-900 text-white px-6 py-3.5 rounded-full font-semibold text-base transition-all shadow-xl hover:shadow-primary-800/30 flex items-center justify-center gap-2">
                   <Ticket className="w-5 h-5" />
                   ትኬት ይግዙ (Book Ticket)
-                  <span className="ml-2">→</span>
+                  <span className="ml-1">→</span>
                 </button>
-                <a href="#about" className="w-full sm:w-auto bg-white/80 backdrop-blur-sm hover:bg-white text-primary-900 border border-primary-300 px-8 py-4 rounded-full font-semibold text-lg transition-all shadow-sm flex items-center justify-center gap-3">
+                <a href="#about" className="w-full sm:w-auto bg-white/80 backdrop-blur-sm hover:bg-white text-primary-900 border border-primary-300 px-6 py-3.5 rounded-full font-semibold text-base transition-all shadow-sm flex items-center justify-center gap-2">
                   <Info className="w-5 h-5" />
                   ተጨማሪ መረጃ
                 </a>

@@ -192,20 +192,20 @@ const UserDashboard: React.FC = () => {
                 የመንፈሳዊ ጉዞ ትኬትዎን ያስይዙ፣ ክፍያዎን ይፈጽሙ እና የትኬት ቁጥርዎን ይቀበሉ።
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
               {isAdmin && (
                 <Link
                   to="/admin"
-                  className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-md flex items-center gap-2"
+                  className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-md flex items-center justify-center gap-2 w-full sm:w-auto"
                 >
                   <ShieldCheck className="w-4 h-4" /> የአድሚን ገጽ (Admin)
                 </Link>
               )}
               <button
                 onClick={() => setShowBookingForm(!showBookingForm)}
-                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-sm transition-all shadow-lg flex items-center gap-2"
+                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2 w-full sm:w-auto"
               >
-                <Ticket className="w-4 h-4" /> {showBookingForm ? 'ቅጹን ዝጋ (Close)' : 'አዲስ ትኬት ይቁረጡ (Book Ticket)'}
+                <Ticket className="w-4 h-4" /> {showBookingForm ? 'ቅጹን ዝጋ (Close)' : 'አዲስ ትኬት ይቁረጡ (Book)'}
               </button>
             </div>
           </div>
