@@ -371,10 +371,7 @@ const UserDashboard: React.FC = () => {
                   <Clock className="w-3.5 h-3.5 text-amber-600" /> {journey.departureTime}
                 </span>
               </div>
-              <div>
-                <span className="text-slate-400 block mb-1">ቀሪ ቦታ (Seats Available)</span>
-                <span className="font-bold text-emerald-600">{journey.availableCapacity} ወንበሮች</span>
-              </div>
+
             </div>
 
             <form onSubmit={handleCreateBooking} className="space-y-6">
