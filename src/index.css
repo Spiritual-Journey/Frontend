@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  /* New Exact UI Theme */
+  --color-primary: #0c396d;
+  --color-accent: #ba7512;
+  --color-body-text: #263b55;
+  --color-bg-main: #fdfbf9;
+  --color-footer-bg: #1e2f45;
+  --color-border-soft: #e8d9c8;
+
+  /* We keep a mapped scale for existing classes to avoid breaking the layout,
+     but they all point to the user's exact HEX codes */
+  --color-primary-50: var(--color-bg-main);
+  --color-primary-100: var(--color-border-soft);
+  --color-primary-200: var(--color-border-soft);
+  --color-primary-300: var(--color-border-soft);
+  --color-primary-400: var(--color-body-text);
+  --color-primary-500: var(--color-body-text);
+  --color-primary-600: var(--color-primary);
+  --color-primary-700: var(--color-body-text);
+  --color-primary-800: var(--color-primary);
+  --color-primary-900: var(--color-primary);
+  --color-primary-950: var(--color-footer-bg);
+  
+  --color-accent-hover: #9c600b;
+  --color-accent-light: #fef3c7;
+  
+  --color-secondary-50: var(--color-bg-main);
+  --color-secondary-900: var(--color-primary);
+
+
+  --font-sans: "Inter", sans-serif;
+  --font-serif: "Merriweather", serif;
+
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-float-slow: float 8s ease-in-out infinite;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-primary-50 text-secondary-900 font-sans antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif text-primary-950;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-white/70 backdrop-blur-md border border-white/40 shadow-xl;
+  }
+}
