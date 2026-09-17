@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, XCircle, Clock, Eye, X } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Eye, X, Users, TrendingUp, Ticket, AlertCircle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../../context/AuthContext';
 import { adminApi } from '../../api/payment.api';
-import { BACKEND_URL } from '../../api/axios';
 import TicketScanner from '../../components/TicketScanner';
 
 interface Stats {
@@ -162,22 +161,60 @@ const AdminDashboard: React.FC = () => {
         {tab === 'overview' && stats && (
           <div className="space-y-8 animate-in fade-in duration-300">
             <h2 className="text-3xl font-black text-slate-900 font-serif mb-6">Overview</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <p className="text-slate-500 text-sm font-bold tracking-wider uppercase mb-2">Total Users</p>
-                <p className="text-4xl font-black text-slate-900">{stats.totalUsers}</p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-slate-500 text-xs font-bold tracking-wider uppercase">Total Users</p>
+                  <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center">
+                    <Users className="w-4 h-4 text-slate-600" />
+                  </div>
+                </div>
+                <p className="text-4xl font-black text-slate-900">{stats.totalUsers ?? 0}</p>
+                <p className="text-xs text-slate-400 font-medium">Registered customers</p>
               </div>
-              <div className="bg-amber-50 p-6 rounded-2xl shadow-sm border border-amber-200">
-                <p className="text-amber-800 text-sm font-bold tracking-wider uppercase mb-2">Pending</p>
+              <div className="bg-amber-50 p-5 sm:p-6 rounded-2xl shadow-sm border border-amber-200 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-amber-800 text-xs font-bold tracking-wider uppercase">Pending</p>
+                  <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center">
+                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                  </div>
+                </div>
                 <p className="text-4xl font-black text-amber-900">{stats.pendingPayments}</p>
+                <p className="text-xs text-amber-600 font-medium">Awaiting review</p>
               </div>
-              <div className="bg-emerald-50 p-6 rounded-2xl shadow-sm border border-emerald-200">
-                <p className="text-emerald-800 text-sm font-bold tracking-wider uppercase mb-2">Approved</p>
+              <div className="bg-emerald-50 p-5 sm:p-6 rounded-2xl shadow-sm border border-emerald-200 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-emerald-800 text-xs font-bold tracking-wider uppercase">Approved</p>
+                  <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  </div>
+                </div>
                 <p className="text-4xl font-black text-emerald-900">{stats.confirmedBookings}</p>
+                <p className="text-xs text-emerald-600 font-medium">Confirmed bookings</p>
               </div>
-              <div className="bg-blue-50 p-6 rounded-2xl shadow-sm border border-blue-200">
-                <p className="text-blue-800 text-sm font-bold tracking-wider uppercase mb-2">Tickets Issued</p>
+              <div className="bg-blue-50 p-5 sm:p-6 rounded-2xl shadow-sm border border-blue-200 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-blue-800 text-xs font-bold tracking-wider uppercase">Tickets</p>
+                  <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <Ticket className="w-4 h-4 text-blue-600" />
+                  </div>
+                </div>
                 <p className="text-4xl font-black text-blue-900">{stats.ticketsIssued || 0}</p>
+                <p className="text-xs text-blue-600 font-medium">Issued tickets</p>
+              </div>
+            </div>
+
+            {/* Revenue Card */}
+            <div className="bg-gradient-to-r from-amber-600 to-orange-500 p-6 sm:p-8 rounded-2xl shadow-lg text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-amber-100 text-sm font-bold tracking-wider uppercase mb-2">Total Revenue</p>
+                  <p className="text-4xl sm:text-5xl font-black">{(stats.totalRevenue || 0).toLocaleString()} <span className="text-2xl font-bold text-amber-200">ETB</span></p>
+                  <p className="text-amber-200 text-sm mt-2 font-medium">From {stats.confirmedBookings} approved bookings</p>
+                </div>
+                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+                  <TrendingUp className="w-8 h-8 text-white" />
+                </div>
               </div>
             </div>
 
@@ -355,15 +392,23 @@ const AdminDashboard: React.FC = () => {
 
               <div>
                 <p className="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider">Payment Screenshot</p>
-                <div className="bg-slate-100 rounded-3xl border-4 border-slate-50 overflow-hidden flex items-center justify-center relative min-h-[350px]">
+                <div className="bg-slate-100 rounded-3xl border-4 border-slate-50 overflow-hidden flex items-center justify-center relative min-h-[250px] sm:min-h-[350px]">
                   {selectedBooking.payment?.screenshotUrl ? (
                     <img 
-                      src={`${BACKEND_URL}${selectedBooking.payment.screenshotUrl}`} 
+                      src={selectedBooking.payment.screenshotUrl}
                       alt="Proof of payment" 
-                      className="max-w-full max-h-[60vh] object-contain"
+                      className="max-w-full max-h-[60vh] object-contain rounded-2xl"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '';
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).parentElement!.innerHTML = '<p class="text-slate-500 font-medium p-8 text-center">Screenshot could not be loaded</p>';
+                      }}
                     />
                   ) : (
-                    <p className="text-slate-500 font-medium">No screenshot provided</p>
+                    <div className="text-center p-8">
+                      <p className="text-slate-400 text-4xl mb-3">🖼️</p>
+                      <p className="text-slate-500 font-medium">No screenshot provided</p>
+                    </div>
                   )}
                 </div>
               </div>
