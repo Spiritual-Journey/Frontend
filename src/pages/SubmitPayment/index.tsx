@@ -43,7 +43,7 @@ const SubmitPayment: React.FC = () => {
     try {
       await paymentApi.submit(bookingId, method, reference, file);
       setSuccess(true);
-      setTimeout(() => navigate('/my-bookings'), 3000);
+      setTimeout(() => navigate('/dashboard'), 2500);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setError(axiosErr.response?.data?.message || 'Submission failed. Please try again.');
@@ -148,7 +148,7 @@ const SubmitPayment: React.FC = () => {
             className="w-full bg-primary-800 hover:bg-primary-900 disabled:opacity-60 text-white py-4 rounded-2xl font-bold text-lg transition-all shadow-xl flex items-center justify-center gap-3">
             {loading
               ? <span className="w-6 h-6 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              : <><Upload className="w-5 h-5" /> ስሌይድ (Submit Payment)</>}
+              : <><Upload className="w-5 h-5" /> ክፍያ ያስረክቡ (Submit Payment)</>}
           </button>
         </form>
       </div>

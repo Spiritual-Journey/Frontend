@@ -514,7 +514,7 @@ const UserDashboard: React.FC = () => {
                   >
                     {/* Top status banner */}
                     <div
-                      className={`px-6 py-3 text-xs font-bold flex items-center justify-between ${
+                      className={`px-4 sm:px-6 py-3 text-xs font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
                         isConfirmed
                           ? 'bg-emerald-50 text-emerald-800'
                           : isUnderReview
@@ -525,10 +525,10 @@ const UserDashboard: React.FC = () => {
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        {isConfirmed && <CheckCircle className="w-4 h-4 text-emerald-600" />}
-                        {isUnderReview && <Clock className="w-4 h-4 text-blue-600" />}
-                        {isPendingPayment && <AlertCircle className="w-4 h-4 text-amber-600" />}
-                        {isRejected && <XCircle className="w-4 h-4 text-red-600" />}
+                        {isConfirmed && <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />}
+                        {isUnderReview && <Clock className="w-4 h-4 text-blue-600 shrink-0" />}
+                        {isPendingPayment && <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />}
+                        {isRejected && <XCircle className="w-4 h-4 text-red-600 shrink-0" />}
                         <span>
                           {isConfirmed && 'ትኬቱ ተረጋግጧል (Confirmed & Ticket Issued)'}
                           {isUnderReview && 'የክፍያ ስክሪንሾት ተልኳል — በአድሚን በመረጋገጥ ላይ (Pending Admin Approval)'}
@@ -536,10 +536,10 @@ const UserDashboard: React.FC = () => {
                           {isRejected && 'ክፍያው ውድቅ ተደርጓል (Payment Rejected)'}
                         </span>
                       </div>
-                      <span className="font-mono text-slate-500">#{booking.bookingNumber}</span>
+                      <span className="font-mono text-slate-500 shrink-0 text-right">#{booking.bookingNumber}</span>
                     </div>
 
-                    <div className="p-6 sm:p-8">
+                    <div className="p-4 sm:p-8">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
                         <div>
                           <h3 className="text-xl font-serif font-black text-slate-900 mb-1">

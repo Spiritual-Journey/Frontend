@@ -119,7 +119,7 @@ const TicketScanner: React.FC<TicketScannerProps> = () => {
 
   return (
     <div className="flex flex-col items-center max-w-lg mx-auto w-full">
-      <div className="w-full bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+      <div className="w-full bg-white rounded-3xl p-4 sm:p-6 shadow-sm border border-slate-200">
         <h2 className="text-xl font-serif font-black text-slate-900 mb-4 flex items-center gap-2 justify-center">
           <Ticket className="w-5 h-5 text-amber-600" /> Verify Ticket QR Code
         </h2>

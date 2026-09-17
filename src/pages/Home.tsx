@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Calendar, MapPin, Clock, Ticket, Info } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import trueBg from '../assets/image copy 2.png';
 import maryImage from '../assets/image copy.png';
 import worshipImage from '../assets/image.png';
@@ -7,6 +9,7 @@ import worshipImage from '../assets/image.png';
 const aboutImages = [maryImage, worshipImage];
 
 const Home: React.FC = () => {
+  const { isAuthenticated } = useAuth();
   const [currentAboutImg, setCurrentAboutImg] = useState(0);
 
   useEffect(() => {
@@ -58,11 +61,14 @@ const Home: React.FC = () => {
               </p>
               
               <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start w-full px-4 sm:px-0">
-                <button className="w-full sm:w-auto bg-primary-800 hover:bg-primary-900 text-white px-6 py-3.5 rounded-full font-semibold text-base transition-all shadow-xl hover:shadow-primary-800/30 flex items-center justify-center gap-2">
+                <Link
+                  to={isAuthenticated ? "/dashboard?book=true" : "/register"}
+                  className="w-full sm:w-auto bg-primary-800 hover:bg-primary-900 text-white px-6 py-3.5 rounded-full font-semibold text-base transition-all shadow-xl hover:shadow-primary-800/30 flex items-center justify-center gap-2"
+                >
                   <Ticket className="w-5 h-5" />
                   ትኬት ይግዙ (Book Ticket)
                   <span className="ml-1">→</span>
-                </button>
+                </Link>
                 <a href="#about" className="w-full sm:w-auto bg-white/80 backdrop-blur-sm hover:bg-white text-primary-900 border border-primary-300 px-6 py-3.5 rounded-full font-semibold text-base transition-all shadow-sm flex items-center justify-center gap-2">
                   <Info className="w-5 h-5" />
                   ተጨማሪ መረጃ
@@ -128,7 +134,7 @@ const Home: React.FC = () => {
           <div className="flex flex-col lg:flex-row items-center lg:items-start gap-12 lg:gap-16">
             <div className="flex-1 w-full order-2 lg:order-1 relative">
               <div className="relative p-3 bg-white rounded-3xl shadow-2xl border border-primary-100">
-                <div className="relative w-full h-[480px] sm:h-[550px] lg:h-[620px] rounded-2xl overflow-hidden shadow-inner bg-primary-900/10">
+                <div className="relative w-full h-[320px] sm:h-[480px] lg:h-[620px] rounded-2xl overflow-hidden shadow-inner bg-primary-900/10">
                   {aboutImages.map((img, index) => (
                     <img 
                       key={index}
@@ -183,26 +189,32 @@ const Home: React.FC = () => {
                 ))}
               </div>
               
-              <div className="bg-primary-900 text-white p-8 rounded-2xl shadow-xl relative overflow-hidden">
+              <div className="bg-primary-900 text-white p-6 sm:p-8 rounded-2xl shadow-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-accent rounded-bl-full opacity-20"></div>
                 <h3 className="text-2xl font-bold mb-6 font-serif text-white flex items-center gap-2">
                   <Ticket className="text-accent" />
                   የትኬት ክፍያ (250 ብር)
                 </h3>
-                <div className="space-y-4">
+                <div className="space-y-4 mb-6">
                   <div className="flex justify-between items-center pb-4 border-b border-primary-700">
                     <span className="text-primary-300 font-medium">Telebirr</span>
-                    <span className="font-mono text-xl font-bold text-accent-light">0942027483</span>
+                    <span className="font-mono text-lg sm:text-xl font-bold text-accent-light">0942027483</span>
                   </div>
                   <div className="flex justify-between items-center pb-4 border-b border-primary-700">
                     <span className="text-primary-300 font-medium">CBE (ንግድ ባንክ)</span>
-                    <span className="font-mono text-xl font-bold text-accent-light">1000748442379</span>
+                    <span className="font-mono text-lg sm:text-xl font-bold text-accent-light">1000748442379</span>
                   </div>
                   <div className="flex justify-between items-center pt-2">
                     <span className="text-primary-300 font-medium">የአካውንት ስም</span>
-                    <span className="font-bold text-xl text-white">Rahel Brhane</span>
+                    <span className="font-bold text-lg sm:text-xl text-white">Rahel Brhane</span>
                   </div>
                 </div>
+                <Link
+                  to={isAuthenticated ? "/dashboard?book=true" : "/register"}
+                  className="w-full bg-accent hover:bg-accent-hover text-white py-3.5 rounded-xl font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-lg"
+                >
+                  <Ticket className="w-4 h-4" /> አሁን ትኬት ይቁረጡ (Book Ticket Now)
+                </Link>
               </div>
               
             </div>

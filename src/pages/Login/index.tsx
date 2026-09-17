@@ -42,10 +42,10 @@ const Login: React.FC = () => {
           {/* Top accent bar */}
           <div className="h-2 bg-gradient-to-r from-primary-800 via-accent to-primary-800" />
 
-          <div className="p-8 sm:p-10">
+          <div className="p-6 sm:p-10">
             {/* Logo */}
             <div className="flex justify-center mb-6">
-              <img src={logoImg} alt="Logo" className="h-20 object-contain" />
+              <img src={logoImg} alt="Logo" className="h-16 sm:h-20 object-contain" />
             </div>
 
             <h1 className="text-2xl font-serif font-black text-primary-900 text-center mb-1">

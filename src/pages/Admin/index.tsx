@@ -401,7 +401,6 @@ const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-        </div>{/* end p-4 sm:p-8 */}
       </div>
     </div>
   );
