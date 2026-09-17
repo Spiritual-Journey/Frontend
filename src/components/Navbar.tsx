@@ -41,7 +41,7 @@ const Navbar: React.FC = () => {
 
           {/* Nav Links */}
           <div className="hidden md:flex items-center space-x-8 mt-2">
-            {!location.pathname.startsWith('/dashboard') && (
+            {!location.pathname.startsWith('/dashboard') && !location.pathname.startsWith('/admin') && !isAuthenticated && (
               <Link to="/" className={`${location.pathname === '/' ? 'text-primary-800 border-b-2 border-accent' : 'text-primary-500 hover:text-primary-800'} font-semibold pb-1 transition-colors`}>Home</Link>
             )}
             {isAuthenticated && !isAdmin && (
@@ -49,8 +49,12 @@ const Navbar: React.FC = () => {
                 Dashboard
               </Link>
             )}
-            <a href="/#about" className="text-primary-500 hover:text-primary-800 transition-colors font-medium pb-1">About</a>
-            <a href="/#contact" className="text-primary-500 hover:text-primary-800 transition-colors font-medium pb-1">Contact</a>
+            {!location.pathname.startsWith('/dashboard') && !location.pathname.startsWith('/admin') && (
+              <>
+                <a href="/#about" className="text-primary-500 hover:text-primary-800 transition-colors font-medium pb-1">About</a>
+                <a href="/#contact" className="text-primary-500 hover:text-primary-800 transition-colors font-medium pb-1">Contact</a>
+              </>
+            )}
             {isAdmin && (
               <Link to="/admin" className="text-accent font-semibold flex items-center gap-1 hover:text-accent-hover transition-colors">
                 <ShieldCheck className="w-4 h-4" /> Admin
