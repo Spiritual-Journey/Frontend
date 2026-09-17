@@ -31,11 +31,11 @@ const Navbar: React.FC = () => {
   return (
     <nav className="bg-white sticky top-0 z-50 shadow-sm border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-24">
+        <div className="flex justify-between items-center h-16 sm:h-24">
           {/* Logo */}
           <div className="flex items-center gap-3">
             <Link to="/" className="flex items-center">
-              <img src={logoImg} alt="Spiritual Journey Logo" className="h-16 object-contain" />
+              <img src={logoImg} alt="Spiritual Journey Logo" className="h-10 sm:h-16 object-contain" />
             </Link>
           </div>
 
@@ -113,11 +113,11 @@ const Navbar: React.FC = () => {
               </div>
             ) : (
               <>
-                <Link to="/login" className="flex items-center text-primary-800 font-medium hover:text-accent transition-colors gap-2">
-                  <User className="w-5 h-5" /> Log In
+                <Link to="/login" className="flex items-center text-primary-800 font-medium hover:text-accent transition-colors gap-1 text-sm sm:text-base">
+                  <User className="w-4 h-4" /> <span className="hidden xs:inline">Log In</span><span className="xs:hidden">Login</span>
                 </Link>
-                <Link to="/register" className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-white px-6 py-2.5 rounded-full font-semibold transition-all shadow-md">
-                  <Ticket className="w-5 h-5" /> Book Ticket
+                <Link to="/register" className="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-white px-3 sm:px-6 py-2 sm:py-2.5 rounded-full font-semibold transition-all shadow-md text-sm sm:text-base">
+                  <Ticket className="w-4 h-4" /> <span className="hidden sm:inline">Book Ticket</span><span className="sm:hidden">Book</span>
                 </Link>
               </>
             )}

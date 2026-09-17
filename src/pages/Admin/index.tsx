@@ -51,6 +51,7 @@ const AdminDashboard: React.FC = () => {
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMsg, setActionMsg] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) { navigate('/login'); return; }
@@ -102,25 +103,35 @@ const AdminDashboard: React.FC = () => {
     navigate('/login');
   };
 
+  const switchTab = (t: typeof tab) => { setTab(t); setSidebarOpen(false); };
+
   return (
     <div className="min-h-screen bg-slate-50 flex">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
       {/* Sidebar */}
-      <div className="w-64 bg-slate-900 text-white min-h-screen shadow-xl flex flex-col">
-        <div className="p-6 mb-4">
+      <div className={`fixed md:static inset-y-0 left-0 z-40 w-64 bg-slate-900 text-white min-h-screen shadow-xl flex flex-col transform transition-transform duration-300 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+      }`}>
+        <div className="p-6 mb-4 flex items-center justify-between">
           <h1 className="text-2xl font-serif font-black text-amber-500 tracking-wider">ADMIN</h1>
+          <button onClick={() => setSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white text-xl">✕</button>
         </div>
         <nav className="flex-1 px-4 space-y-2">
-          <button onClick={() => setTab('overview')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${tab === 'overview' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+          <button onClick={() => switchTab('overview')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${tab === 'overview' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
             <span className="text-xl">📊</span> Overview
           </button>
-          <button onClick={() => setTab('pending')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${tab === 'pending' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+          <button onClick={() => switchTab('pending')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${tab === 'pending' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
             <span className="text-xl">⏳</span> Pending
             {pendingBookings.length > 0 && <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{pendingBookings.length}</span>}
           </button>
-          <button onClick={() => setTab('approved')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${tab === 'approved' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+          <button onClick={() => switchTab('approved')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${tab === 'approved' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
             <span className="text-xl">✅</span> Approved Users
           </button>
-          <button onClick={() => setTab('scanner')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${tab === 'scanner' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+          <button onClick={() => switchTab('scanner')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${tab === 'scanner' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
             <span className="text-xl">📷</span> QR Scanner
           </button>
         </nav>
@@ -132,7 +143,14 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-8 overflow-y-auto">
+      <div className="flex-1 min-w-0 overflow-y-auto">
+        {/* Mobile top bar */}
+        <div className="md:hidden flex items-center gap-3 bg-slate-900 text-white px-4 py-3 sticky top-0 z-20">
+          <button onClick={() => setSidebarOpen(true)} className="text-2xl font-bold text-amber-500 leading-none">☰</button>
+          <span className="font-serif font-black text-amber-500 text-lg">ADMIN</span>
+          <span className="ml-auto text-slate-400 text-sm font-semibold capitalize">{tab}</span>
+        </div>
+        <div className="p-4 sm:p-8">
         {actionMsg && (
           <div className={`mb-6 px-5 py-4 rounded-xl shadow-sm font-medium text-sm flex items-center gap-3 ${actionMsg.startsWith('✓') ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
             {actionMsg.startsWith('✓') ? <CheckCircle className="w-5 h-5 text-emerald-600" /> : <XCircle className="w-5 h-5 text-red-600" />}
@@ -383,6 +401,8 @@ const AdminDashboard: React.FC = () => {
         </div>
       )}
 
+        </div>{/* end p-4 sm:p-8 */}
+      </div>
     </div>
   );
 };
