@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Html5QrcodeScanner, Html5QrcodeScanType } from 'html5-qrcode';
 import { adminApi } from '../api/payment.api';
-import { CheckCircle, AlertCircle, RefreshCw, Ticket, User, Phone } from 'lucide-react';
+import { CheckCircle, AlertCircle, RefreshCw, Ticket, User, Phone, Camera } from 'lucide-react';
 
 interface TicketScannerProps {
   onScanSuccess?: (data: string) => void;
@@ -20,76 +19,102 @@ const TicketScanner: React.FC<TicketScannerProps> = () => {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const scannerRef = useRef<any>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    // Initialize the scanner when the component mounts
-    scannerRef.current = new Html5QrcodeScanner(
-      "qr-reader",
-      {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
-      },
-      false
-    );
+    mountedRef.current = true;
+    initScanner();
 
-    scannerRef.current.render(handleScanSuccess, handleScanError);
-
-    // Cleanup when component unmounts
     return () => {
+      mountedRef.current = false;
       if (scannerRef.current) {
-        scannerRef.current.clear().catch(console.error);
+        try {
+          scannerRef.current.clear().catch(() => {});
+        } catch (_) {}
       }
     };
-  }, []); // Empty dependency array ensures this runs only once
+  }, []);
+
+  const initScanner = async () => {
+    // Check camera permission first before loading the library
+    try {
+      await navigator.mediaDevices.getUserMedia({ video: true });
+    } catch (err: any) {
+      const msg =
+        err?.name === 'NotAllowedError'
+          ? 'Camera permission was denied. Please allow camera access in your browser settings and try again.'
+          : 'Camera is not available on this device or browser.';
+      if (mountedRef.current) setCameraError(msg);
+      return;
+    }
+
+    // Dynamically import to avoid crashes at module level
+    try {
+      const { Html5QrcodeScanner, Html5QrcodeScanType } = await import('html5-qrcode');
+      if (!mountedRef.current) return;
+
+      scannerRef.current = new Html5QrcodeScanner(
+        'qr-reader',
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+        },
+        false
+      );
+
+      scannerRef.current.render(handleScanSuccess, () => {});
+    } catch (_) {
+      if (mountedRef.current)
+        setCameraError('Failed to initialize the QR scanner. Please try refreshing the page.');
+    }
+  };
 
   const handleScanSuccess = async (decodedText: string) => {
-    if (loading) return; // Prevent multiple scans while processing
+    if (loading) return;
 
     try {
       setLoading(true);
       setError(null);
       setScanResult(null);
 
-      // We expect the QR code to be a JSON string like: {"ticketCode":"01", "passengerId":"...", ...}
-      // Or it might just be the ticket code itself if changed in the future.
       let ticketCodeToVerify = decodedText;
-
       try {
         const parsed = JSON.parse(decodedText);
-        if (parsed.ticketCode) {
-          ticketCodeToVerify = parsed.ticketCode;
-        }
-      } catch (e) {
-        // If it's not JSON, assume the text itself is the ticket code
-      }
+        if (parsed.ticketCode) ticketCodeToVerify = parsed.ticketCode;
+      } catch (_) {}
 
       const response = await adminApi.verifyTicket(ticketCodeToVerify);
-      setScanResult(response.data);
+      if (mountedRef.current) setScanResult(response.data);
 
-      // Temporarily pause the scanner after a successful scan
       if (scannerRef.current) {
-        scannerRef.current.pause(true);
+        try {
+          scannerRef.current.pause(true);
+        } catch (_) {}
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || "Invalid Ticket or Server Error");
+      if (mountedRef.current)
+        setError(err.response?.data?.message || 'Invalid Ticket or Server Error');
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
-  };
-
-  const handleScanError = () => {
-    // Html5QrcodeScanner throws an error for every frame that doesn't have a QR code.
-    // It's noisy, so we usually ignore it.
   };
 
   const resumeScanning = () => {
     setScanResult(null);
     setError(null);
     if (scannerRef.current) {
-      scannerRef.current.resume();
+      try {
+        scannerRef.current.resume();
+      } catch (_) {}
     }
+  };
+
+  const retryCamera = () => {
+    setCameraError(null);
+    setTimeout(initScanner, 300);
   };
 
   return (
@@ -98,9 +123,27 @@ const TicketScanner: React.FC<TicketScannerProps> = () => {
         <h2 className="text-xl font-serif font-black text-slate-900 mb-4 flex items-center gap-2 justify-center">
           <Ticket className="w-5 h-5 text-amber-600" /> Verify Ticket QR Code
         </h2>
-        
-        {/* Scanner Container */}
-        <div id="qr-reader" className="w-full overflow-hidden rounded-xl bg-slate-50 mb-6"></div>
+
+        {/* Camera Permission Error */}
+        {cameraError && (
+          <div className="bg-red-50 p-6 rounded-2xl border-2 border-red-200 text-center mb-4">
+            <Camera className="w-12 h-12 text-red-400 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-red-900 mb-2">Camera Access Required</h3>
+            <p className="text-red-700 text-sm mb-4">{cameraError}</p>
+            <button
+              onClick={retryCamera}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-colors"
+            >
+              Request Camera Permissions
+            </button>
+          </div>
+        )}
+
+        {/* Scanner Container - always in DOM so html5-qrcode can find it */}
+        <div
+          id="qr-reader"
+          className={`w-full overflow-hidden rounded-xl bg-slate-50 mb-6 ${cameraError ? 'hidden' : ''}`}
+        ></div>
 
         {/* Loading State */}
         {loading && (
@@ -127,17 +170,25 @@ const TicketScanner: React.FC<TicketScannerProps> = () => {
 
         {/* Success State */}
         {scanResult && !loading && (
-          <div className={`p-6 rounded-2xl border-2 text-center animate-in zoom-in-95 ${scanResult.valid ? 'bg-emerald-50 border-emerald-300' : 'bg-red-50 border-red-300'}`}>
+          <div
+            className={`p-6 rounded-2xl border-2 text-center animate-in zoom-in-95 ${
+              scanResult.valid ? 'bg-emerald-50 border-emerald-300' : 'bg-red-50 border-red-300'
+            }`}
+          >
             {scanResult.valid ? (
               <CheckCircle className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
             ) : (
               <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
             )}
-            
-            <h3 className={`text-2xl font-black mb-1 ${scanResult.valid ? 'text-emerald-900' : 'text-red-900'}`}>
-              {scanResult.valid ? 'TICKET APPROVED' : 'TICKET INVALID'}
+
+            <h3
+              className={`text-2xl font-black mb-1 ${
+                scanResult.valid ? 'text-emerald-900' : 'text-red-900'
+              }`}
+            >
+              {scanResult.valid ? 'TICKET APPROVED ✓' : 'TICKET INVALID ✗'}
             </h3>
-            
+
             <div className="bg-white rounded-xl p-4 my-4 border border-slate-100 text-left space-y-3 shadow-sm">
               <div className="flex items-center gap-3">
                 <Ticket className="w-4 h-4 text-slate-400" />
@@ -164,7 +215,11 @@ const TicketScanner: React.FC<TicketScannerProps> = () => {
 
             <button
               onClick={resumeScanning}
-              className={`font-bold px-8 py-3 rounded-xl transition-all shadow-md mt-2 w-full ${scanResult.valid ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}`}
+              className={`font-bold px-8 py-3 rounded-xl transition-all shadow-md mt-2 w-full ${
+                scanResult.valid
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  : 'bg-red-600 hover:bg-red-700 text-white'
+              }`}
             >
               Scan Next Ticket
             </button>
