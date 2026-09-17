@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, XCircle, Clock, Eye, X, Users, TrendingUp, Ticket, AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Eye, X, Users, TrendingUp, Ticket, AlertCircle, UserX, Phone, Mail, Calendar } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../../context/AuthContext';
 import { adminApi } from '../../api/payment.api';
@@ -36,7 +36,17 @@ interface Booking {
   tickets?: TicketData[];
 }
 
-type Tab = 'overview' | 'pending' | 'approved' | 'scanner';
+interface UserRecord {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  createdAt: string;
+  bookings: { id: string; status: string }[];
+}
+
+type Tab = 'overview' | 'pending' | 'approved' | 'users' | 'rejected' | 'scanner';
 
 const AdminDashboard: React.FC = () => {
   const { isAdmin, isAuthenticated, logout } = useAuth();
@@ -44,8 +54,10 @@ const AdminDashboard: React.FC = () => {
   const [tab, setTab] = useState<Tab>('overview');
   const [stats, setStats] = useState<Stats | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const [userSearch, setUserSearch] = useState('');
+
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -61,12 +73,14 @@ const AdminDashboard: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [statsRes, bookingsRes] = await Promise.all([
+      const [statsRes, bookingsRes, usersRes] = await Promise.all([
         adminApi.getStats(),
-        adminApi.getBookings(), // Get all, we will filter locally
+        adminApi.getBookings(),
+        adminApi.getUsers(),
       ]);
       setStats(statsRes.data);
       setBookings(bookingsRes.data.bookings);
+      setUsers(usersRes.data);
     } catch {}
     setLoading(false);
   };
@@ -95,7 +109,14 @@ const AdminDashboard: React.FC = () => {
 
   const pendingBookings = bookings.filter(b => b.status === 'PAYMENT_SUBMITTED');
   const approvedBookings = bookings.filter(b => b.status === 'CONFIRMED');
+  const rejectedBookings = bookings.filter(b => b.status === 'REJECTED');
   const recentPending = pendingBookings.slice(0, 5);
+  const regularUsers = users.filter(u => u.role !== 'ADMIN');
+  const filteredUsers = regularUsers.filter(u =>
+    u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
+    u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
+    u.phone.includes(userSearch)
+  );
 
   const handleLogout = () => {
     logout();
@@ -103,6 +124,12 @@ const AdminDashboard: React.FC = () => {
   };
 
   const switchTab = (t: typeof tab) => { setTab(t); setSidebarOpen(false); };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch { return dateStr; }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
@@ -119,7 +146,7 @@ const AdminDashboard: React.FC = () => {
           <h1 className="text-2xl font-serif font-black text-amber-500 tracking-wider">ADMIN</h1>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white text-xl">✕</button>
         </div>
-        <nav className="flex-1 px-4 space-y-2">
+        <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
           <button onClick={() => switchTab('overview')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${tab === 'overview' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
             <span className="text-xl">📊</span> Overview
           </button>
@@ -128,7 +155,15 @@ const AdminDashboard: React.FC = () => {
             {pendingBookings.length > 0 && <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{pendingBookings.length}</span>}
           </button>
           <button onClick={() => switchTab('approved')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${tab === 'approved' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-            <span className="text-xl">✅</span> Approved Users
+            <span className="text-xl">✅</span> Approved
+          </button>
+          <button onClick={() => switchTab('users')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${tab === 'users' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <span className="text-xl">👥</span> All Users
+            <span className="ml-auto bg-slate-700 text-slate-300 text-xs font-bold px-2 py-0.5 rounded-full">{regularUsers.length}</span>
+          </button>
+          <button onClick={() => switchTab('rejected')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${tab === 'rejected' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <span className="text-xl">❌</span> Rejected
+            {rejectedBookings.length > 0 && <span className="ml-auto bg-slate-600 text-slate-200 text-xs font-bold px-2 py-0.5 rounded-full">{rejectedBookings.length}</span>}
           </button>
           <button onClick={() => switchTab('scanner')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${tab === 'scanner' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
             <span className="text-xl">📷</span> QR Scanner
@@ -363,6 +398,220 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* ALL USERS TAB */}
+        {tab === 'users' && (
+          <div className="animate-in fade-in duration-300 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <h2 className="text-3xl font-black text-slate-900 font-serif flex items-center gap-3">
+                <span className="text-blue-500">👥</span> Registered Users
+                <span className="text-lg bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-bold">{regularUsers.length}</span>
+              </h2>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={userSearch}
+                  onChange={e => setUserSearch(e.target.value)}
+                  placeholder="Search by name, email or phone..."
+                  className="w-full sm:w-72 pl-4 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 bg-white shadow-sm"
+                />
+                {userSearch && (
+                  <button onClick={() => setUserSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Summary row */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 text-center shadow-sm">
+                <p className="text-2xl font-black text-slate-900">{regularUsers.length}</p>
+                <p className="text-xs text-slate-500 font-medium mt-1">Total Registered</p>
+              </div>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center shadow-sm">
+                <p className="text-2xl font-black text-emerald-800">
+                  {regularUsers.filter(u => u.bookings.some(b => b.status === 'CONFIRMED')).length}
+                </p>
+                <p className="text-xs text-emerald-700 font-medium mt-1">With Approved Booking</p>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center shadow-sm">
+                <p className="text-2xl font-black text-slate-700">
+                  {regularUsers.filter(u => u.bookings.length === 0).length}
+                </p>
+                <p className="text-xs text-slate-500 font-medium mt-1">No Bookings Yet</p>
+              </div>
+            </div>
+
+            {/* Users Table */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+              {/* Desktop Table */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50">
+                      <th className="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-6 py-4">#</th>
+                      <th className="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-6 py-4">Name</th>
+                      <th className="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-6 py-4">Email</th>
+                      <th className="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-6 py-4">Phone</th>
+                      <th className="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-6 py-4">Bookings</th>
+                      <th className="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-6 py-4">Joined</th>
+                      <th className="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-6 py-4">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredUsers.map((u, idx) => {
+                      const hasApproved = u.bookings.some(b => b.status === 'CONFIRMED');
+                      const hasPending = u.bookings.some(b => b.status === 'PAYMENT_SUBMITTED');
+                      return (
+                        <tr key={u.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-4 text-slate-400 font-mono text-sm">{idx + 1}</td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-black text-sm flex-shrink-0">
+                                {u.name.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="font-semibold text-slate-900 text-sm">{u.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-slate-600 text-sm">{u.email}</td>
+                          <td className="px-6 py-4 text-slate-600 text-sm font-mono">{u.phone}</td>
+                          <td className="px-6 py-4">
+                            <span className="bg-slate-100 text-slate-700 text-xs font-bold px-2.5 py-1 rounded-full">
+                              {u.bookings.length} booking{u.bookings.length !== 1 ? 's' : ''}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-slate-500 text-sm">{formatDate(u.createdAt)}</td>
+                          <td className="px-6 py-4">
+                            {hasApproved ? (
+                              <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full">✓ Confirmed</span>
+                            ) : hasPending ? (
+                              <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-full">⏳ Pending</span>
+                            ) : (
+                              <span className="bg-slate-100 text-slate-500 text-xs font-bold px-2.5 py-1 rounded-full">No booking</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {filteredUsers.length === 0 && (
+                  <div className="py-16 text-center text-slate-500">
+                    <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="font-medium">{userSearch ? 'No users match your search.' : 'No registered users yet.'}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="sm:hidden divide-y divide-slate-100">
+                {filteredUsers.map((u, idx) => {
+                  const hasApproved = u.bookings.some(b => b.status === 'CONFIRMED');
+                  const hasPending = u.bookings.some(b => b.status === 'PAYMENT_SUBMITTED');
+                  return (
+                    <div key={u.id} className="p-4 flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-black text-sm flex-shrink-0">
+                        {u.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-bold text-slate-900 text-sm truncate">{idx + 1}. {u.name}</p>
+                          {hasApproved ? (
+                            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">✓ Active</span>
+                          ) : hasPending ? (
+                            <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">Pending</span>
+                          ) : (
+                            <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">No booking</span>
+                          )}
+                        </div>
+                        <p className="text-slate-500 text-xs mt-0.5 flex items-center gap-1"><Mail className="w-3 h-3" />{u.email}</p>
+                        <p className="text-slate-500 text-xs mt-0.5 flex items-center gap-1"><Phone className="w-3 h-3" />{u.phone}</p>
+                        <div className="flex items-center gap-3 mt-1.5">
+                          <span className="text-slate-400 text-xs flex items-center gap-1"><Ticket className="w-3 h-3" />{u.bookings.length} booking{u.bookings.length !== 1 ? 's' : ''}</span>
+                          <span className="text-slate-400 text-xs flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(u.createdAt)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {filteredUsers.length === 0 && (
+                  <div className="py-16 text-center text-slate-500">
+                    <p className="font-medium">{userSearch ? 'No users match your search.' : 'No registered users yet.'}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* REJECTED TAB */}
+        {tab === 'rejected' && (
+          <div className="animate-in fade-in duration-300 space-y-6">
+            <h2 className="text-3xl font-black text-slate-900 font-serif flex items-center gap-3">
+              <span className="text-red-500">❌</span> Rejected Bookings
+              <span className="text-lg bg-red-100 text-red-800 px-3 py-1 rounded-full font-bold">{rejectedBookings.length}</span>
+            </h2>
+
+            {rejectedBookings.length === 0 ? (
+              <div className="py-20 text-center bg-white rounded-3xl border border-slate-200 border-dashed">
+                <UserX className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <p className="text-lg font-medium text-slate-500">No rejected bookings.</p>
+                <p className="text-sm text-slate-400 mt-1">All reviewed bookings have been approved.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {rejectedBookings.map(b => (
+                  <div key={b.id} className="bg-white rounded-2xl border-2 border-red-100 overflow-hidden shadow-sm">
+                    <div className="bg-red-50 px-6 py-3 flex items-center justify-between border-b border-red-100">
+                      <span className="text-xs font-black text-red-700 uppercase tracking-wider flex items-center gap-2">
+                        <XCircle className="w-4 h-4" /> Payment Rejected
+                      </span>
+                      <span className="text-xs text-red-400 font-medium">{formatDate(b.createdAt)}</span>
+                    </div>
+                    <div className="p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {/* User info */}
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">User</p>
+                        <p className="font-black text-slate-900 text-lg">{b.user.name}</p>
+                        <p className="text-sm text-slate-500 flex items-center gap-1.5 mt-1"><Mail className="w-3.5 h-3.5" />{b.user.email}</p>
+                        <p className="text-sm text-slate-500 flex items-center gap-1.5 mt-0.5"><Phone className="w-3.5 h-3.5" />{b.user.phone}</p>
+                      </div>
+
+                      {/* Booking info */}
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Booking Details</p>
+                        <p className="text-sm text-slate-700 mb-1"><span className="text-slate-400">Journey:</span> <span className="font-semibold">{b.journey?.title || 'N/A'}</span></p>
+                        <p className="text-sm text-slate-700 mb-1"><span className="text-slate-400">Tickets:</span> <span className="font-semibold">{b.numberOfTickets}</span></p>
+                        <p className="text-sm text-slate-700 mb-1"><span className="text-slate-400">Amount:</span> <span className="font-semibold text-red-600">{b.totalAmount} ETB</span></p>
+                        <p className="text-sm text-slate-700"><span className="text-slate-400">Method:</span> <span className="font-semibold">{b.payment?.paymentMethod || 'N/A'}</span></p>
+                      </div>
+
+                      {/* Rejection reason */}
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Rejection Reason</p>
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                          <p className="text-sm text-red-800 font-medium leading-relaxed">
+                            {b.payment?.rejectionReason || 'No reason provided'}
+                          </p>
+                        </div>
+                        {b.passengers.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Passengers</p>
+                            {b.passengers.map((p, i) => (
+                              <p key={i} className="text-xs text-slate-600 font-medium">• {p.fullName}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* REVIEW MODAL FOR PENDING */}
