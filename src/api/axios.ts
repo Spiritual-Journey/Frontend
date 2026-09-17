@@ -3,6 +3,9 @@ import axios from 'axios';
 const rawURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const baseURL = rawURL.endsWith('/api') ? rawURL : `${rawURL.replace(/\/$/, '')}/api`;
 
+// The root backend URL (without /api) — used for serving static uploads
+export const BACKEND_URL = baseURL.replace(/\/api$/, '');
+
 const api = axios.create({
   baseURL,
   withCredentials: true,

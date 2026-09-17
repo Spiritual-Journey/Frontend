@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Ticket, CheckCircle, Clock, XCircle, AlertCircle, Upload, Eye } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { bookingApi } from '../../api/booking.api';
+import { BACKEND_URL } from '../../api/axios';
 
 type BookingStatus = 'PENDING' | 'PAYMENT_SUBMITTED' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED';
 
@@ -145,7 +146,7 @@ const MyBookings: React.FC = () => {
                       {b.payment && (
                         <div>
                           <h4 className="font-semibold text-primary-800 mb-3">Payment Screenshot</h4>
-                          <img src={`http://localhost:5000${b.payment.screenshotUrl}`} alt="Payment" className="rounded-xl border border-primary-200 max-h-48 object-contain" />
+                          <img src={`${BACKEND_URL}${b.payment.screenshotUrl}`} alt="Payment" className="rounded-xl border border-primary-200 max-h-48 object-contain" />
                         </div>
                       )}
 

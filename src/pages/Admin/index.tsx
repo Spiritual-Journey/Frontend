@@ -4,6 +4,7 @@ import { CheckCircle, XCircle, Clock, Eye, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../../context/AuthContext';
 import { adminApi } from '../../api/payment.api';
+import { BACKEND_URL } from '../../api/axios';
 import TicketScanner from '../../components/TicketScanner';
 
 interface Stats {
@@ -339,7 +340,7 @@ const AdminDashboard: React.FC = () => {
                 <div className="bg-slate-100 rounded-3xl border-4 border-slate-50 overflow-hidden flex items-center justify-center relative min-h-[350px]">
                   {selectedBooking.payment?.screenshotUrl ? (
                     <img 
-                      src={`http://localhost:5000${selectedBooking.payment.screenshotUrl}`} 
+                      src={`${BACKEND_URL}${selectedBooking.payment.screenshotUrl}`} 
                       alt="Proof of payment" 
                       className="max-w-full max-h-[60vh] object-contain"
                     />
