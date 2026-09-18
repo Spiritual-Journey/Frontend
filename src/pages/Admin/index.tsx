@@ -132,14 +132,14 @@ const AdminDashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="h-screen bg-slate-50 flex overflow-hidden">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Sidebar */}
-      <div className={`fixed md:static inset-y-0 left-0 z-40 w-64 bg-slate-900 text-white min-h-screen shadow-xl flex flex-col transform transition-transform duration-300 ${
+      <div className={`fixed md:static inset-y-0 left-0 z-40 w-64 bg-slate-900 text-white h-full shadow-xl flex flex-col transform transition-transform duration-300 ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
       }`}>
         <div className="p-6 mb-4 flex items-center justify-between">
