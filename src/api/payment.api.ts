@@ -15,8 +15,8 @@ export const paymentApi = {
 
 export const adminApi = {
   getStats: () => api.get('/admin/stats'),
-  getBookings: (status?: string, page?: number) =>
-    api.get('/admin/bookings', { params: { status, page } }),
+  getBookings: (status?: string, page?: number, limit: number = 500) =>
+    api.get('/admin/bookings', { params: { status, page, limit } }),
   getUsers: () => api.get('/admin/users'),
   verifyPayment: (paymentId: string, action: 'APPROVE' | 'REJECT', rejectionReason?: string) =>
     api.patch(`/admin/payments/${paymentId}/verify`, { action, rejectionReason }),

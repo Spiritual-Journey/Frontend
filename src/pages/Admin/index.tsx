@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, XCircle, Clock, Eye, X, Users, TrendingUp, Ticket, AlertCircle, UserX, Phone, Mail, Calendar } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Eye, X, Users, TrendingUp, Ticket, AlertCircle, UserX, Phone, Mail, Calendar, ArrowUp, Sparkles } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../../context/AuthContext';
 import { adminApi } from '../../api/payment.api';
 import TicketScanner from '../../components/TicketScanner';
+import { verifyReceiptImage, type ReceiptVerificationResult } from '../../utils/receiptVerifier';
 
 interface Stats {
   totalUsers: number;
@@ -36,6 +37,14 @@ interface Booking {
   tickets?: TicketData[];
 }
 
+interface BookingRecord {
+  id: string;
+  status: string;
+  numberOfTickets?: number;
+  totalAmount?: number;
+  tickets?: { id: string; ticketCode: string; status: string }[];
+}
+
 interface UserRecord {
   id: string;
   name: string;
@@ -43,7 +52,7 @@ interface UserRecord {
   phone: string;
   role: string;
   createdAt: string;
-  bookings: { id: string; status: string }[];
+  bookings: BookingRecord[];
 }
 
 type Tab = 'overview' | 'pending' | 'approved' | 'users' | 'rejected' | 'scanner';
@@ -57,6 +66,7 @@ const AdminDashboard: React.FC = () => {
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [userSearch, setUserSearch] = useState('');
+  const [approvedSearch, setApprovedSearch] = useState('');
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -64,11 +74,49 @@ const AdminDashboard: React.FC = () => {
   const [actionMsg, setActionMsg] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Smart Receipt OCR State
+  const [receiptScanResult, setReceiptScanResult] = useState<ReceiptVerificationResult | null>(null);
+  const [scanningReceipt, setScanningReceipt] = useState(false);
+  const [showRawOcr, setShowRawOcr] = useState(false);
+
+  // Scroll & Back to top
+  const [showBackToTop, setShowBackToTop] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    setShowBackToTop(e.currentTarget.scrollTop > 350);
+  };
+
   useEffect(() => {
     if (!isAuthenticated) { navigate('/login'); return; }
     if (!isAdmin) { navigate('/'); return; }
     loadData();
   }, [isAuthenticated, isAdmin, navigate]);
+
+  // Run receipt OCR when modal opens with a pending booking payment
+  useEffect(() => {
+    if (selectedBooking?.payment?.screenshotUrl && tab === 'pending') {
+      runReceiptScan(selectedBooking.payment.screenshotUrl, selectedBooking.totalAmount);
+    } else {
+      setReceiptScanResult(null);
+      setScanningReceipt(false);
+      setShowRawOcr(false);
+    }
+  }, [selectedBooking, tab]);
+
+  const runReceiptScan = async (url: string, amount: number) => {
+    setScanningReceipt(true);
+    setReceiptScanResult(null);
+    setShowRawOcr(false);
+    try {
+      const res = await verifyReceiptImage(url, amount);
+      setReceiptScanResult(res);
+    } catch {
+      // ignore
+    } finally {
+      setScanningReceipt(false);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -112,18 +160,44 @@ const AdminDashboard: React.FC = () => {
   const rejectedBookings = bookings.filter(b => b.status === 'REJECTED');
   const recentPending = pendingBookings.slice(0, 5);
   const regularUsers = users.filter(u => u.role !== 'ADMIN');
+
   const filteredUsers = regularUsers.filter(u =>
     u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
     u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
     u.phone.includes(userSearch)
   );
 
+  const filteredApproved = approvedBookings.filter(b => {
+    const q = approvedSearch.toLowerCase();
+    return (
+      b.user.name.toLowerCase().includes(q) ||
+      b.user.email.toLowerCase().includes(q) ||
+      b.user.phone.includes(q) ||
+      b.passengers.some(p => p.fullName?.toLowerCase().includes(q) || p.phone?.includes(q)) ||
+      b.tickets?.some(t => t.ticketCode.includes(q))
+    );
+  });
+
+  const getUserTicketStats = (u: UserRecord) => {
+    const confirmedTickets = u.bookings
+      .filter(b => b.status === 'CONFIRMED')
+      .reduce((sum, b) => sum + (b.numberOfTickets || b.tickets?.length || 0), 0);
+    const pendingTickets = u.bookings
+      .filter(b => b.status === 'PAYMENT_SUBMITTED')
+      .reduce((sum, b) => sum + (b.numberOfTickets || 0), 0);
+    return { confirmedTickets, pendingTickets, totalTickets: confirmedTickets + pendingTickets };
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const switchTab = (t: typeof tab) => { setTab(t); setSidebarOpen(false); };
+  const switchTab = (t: typeof tab) => {
+    setTab(t);
+    setSidebarOpen(false);
+    contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const formatDate = (dateStr: string) => {
     try {
@@ -156,6 +230,7 @@ const AdminDashboard: React.FC = () => {
           </button>
           <button onClick={() => switchTab('approved')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${tab === 'approved' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
             <span className="text-xl">✅</span> Approved
+            {approvedBookings.length > 0 && <span className="ml-auto bg-emerald-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">{approvedBookings.length}</span>}
           </button>
           <button onClick={() => switchTab('users')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${tab === 'users' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
             <span className="text-xl">👥</span> All Users
@@ -177,14 +252,14 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
+      <div ref={contentRef} onScroll={handleScroll} className="flex-1 min-w-0 overflow-y-auto scroll-smooth relative">
         {/* Mobile top bar */}
         <div className="md:hidden flex items-center gap-3 bg-slate-900 text-white px-4 py-3 sticky top-0 z-20">
           <button onClick={() => setSidebarOpen(true)} className="text-2xl font-bold text-amber-500 leading-none">☰</button>
           <span className="font-serif font-black text-amber-500 text-lg">ADMIN</span>
           <span className="ml-auto text-slate-400 text-sm font-semibold capitalize">{tab}</span>
         </div>
-        <div className="p-4 sm:p-8">
+        <div className="p-4 sm:p-8 pb-32">
         {actionMsg && (
           <div className={`mb-6 px-5 py-4 rounded-xl shadow-sm font-medium text-sm flex items-center gap-3 ${actionMsg.startsWith('✓') ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
             {actionMsg.startsWith('✓') ? <CheckCircle className="w-5 h-5 text-emerald-600" /> : <XCircle className="w-5 h-5 text-red-600" />}
@@ -287,13 +362,18 @@ const AdminDashboard: React.FC = () => {
 
         {/* PENDING TAB */}
         {tab === 'pending' && (
-          <div className="animate-in fade-in duration-300">
-            <h2 className="text-3xl font-black text-slate-900 font-serif mb-6 flex items-center gap-3">
-              <span className="text-amber-500">⏳</span> Pending Payments
-            </h2>
+          <div className="animate-in fade-in duration-300 space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-3xl font-black text-slate-900 font-serif flex items-center gap-3">
+                <span className="text-amber-500">⏳</span> Pending Payments
+                {pendingBookings.length > 0 && (
+                  <span className="text-lg bg-amber-100 text-amber-800 px-3 py-1 rounded-full font-bold">{pendingBookings.length}</span>
+                )}
+              </h2>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {pendingBookings.map(b => (
-                <div key={b.id} className="bg-white rounded-3xl shadow-sm border-2 border-amber-200 p-6 flex flex-col">
+                <div key={b.id} className="bg-white rounded-3xl shadow-sm border-2 border-amber-200 p-6 flex flex-col hover:border-amber-300 transition-all">
                   <div className="mb-4">
                     <span className="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full mb-3 inline-block">NEEDS REVIEW</span>
                     <h3 className="font-bold text-slate-900 text-xl">{b.user.name}</h3>
@@ -302,13 +382,13 @@ const AdminDashboard: React.FC = () => {
                   </div>
                   <div className="bg-slate-50 p-4 rounded-2xl mb-6 text-sm border border-slate-100">
                     <p className="text-slate-500 mb-2 font-semibold uppercase tracking-wider text-xs">Payment Information</p>
-                    <p className="text-slate-600 mb-1 flex justify-between">Method: <span className="font-bold text-slate-900">{b.payment?.paymentMethod || 'N/A'}</span></p>
-                    <p className="text-slate-600 mb-1 flex justify-between">Amount: <span className="font-bold text-slate-900">{b.totalAmount} ETB</span></p>
+                    <p className="text-slate-600 mb-1 flex justify-between">Method: <span className="font-bold text-slate-900 uppercase">{b.payment?.paymentMethod || 'N/A'}</span></p>
+                    <p className="text-slate-600 mb-1 flex justify-between">Amount: <span className="font-bold text-emerald-600">{b.totalAmount} ETB</span></p>
                     <p className="text-slate-600 flex justify-between">Tickets: <span className="font-bold text-slate-900">{b.numberOfTickets}</span></p>
                   </div>
                   <div className="mt-auto">
                     <button onClick={() => setSelectedBooking(b)} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 shadow-md">
-                      <Eye className="w-4 h-4" /> Review Screenshot
+                      <Eye className="w-4 h-4" /> Review Screenshot & Verify
                     </button>
                   </div>
                 </div>
@@ -325,15 +405,70 @@ const AdminDashboard: React.FC = () => {
 
         {/* APPROVED TAB */}
         {tab === 'approved' && (
-          <div className="animate-in fade-in duration-300">
-            <h2 className="text-3xl font-black text-slate-900 font-serif mb-6 flex items-center gap-3">
-              <span className="text-emerald-500">✅</span> Approved Users
-            </h2>
+          <div className="animate-in fade-in duration-300 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-3xl font-black text-slate-900 font-serif flex items-center gap-3">
+                  <span className="text-emerald-500">✅</span> Approved Bookings
+                  <span className="text-lg bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full font-bold">{approvedBookings.length}</span>
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">All confirmed users with generated ticket codes & QR barcodes</p>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  value={approvedSearch}
+                  onChange={e => setApprovedSearch(e.target.value)}
+                  placeholder="Search by name, phone, ticket #..."
+                  className="w-full sm:w-72 pl-4 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 bg-white shadow-sm"
+                />
+                {approvedSearch && (
+                  <button onClick={() => setApprovedSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Approved Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 text-center shadow-sm">
+                <p className="text-2xl font-black text-slate-900">{approvedBookings.length}</p>
+                <p className="text-xs text-slate-500 font-medium mt-1">Confirmed Bookings</p>
+              </div>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center shadow-sm">
+                <p className="text-2xl font-black text-emerald-800">
+                  {approvedBookings.reduce((sum, b) => sum + (b.tickets?.length || b.numberOfTickets || 0), 0)}
+                </p>
+                <p className="text-xs text-emerald-700 font-medium mt-1">Total Issued Tickets</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-center shadow-sm col-span-2 sm:col-span-1">
+                <p className="text-2xl font-black text-blue-800">
+                  {approvedBookings.reduce((sum, b) => sum + b.totalAmount, 0).toLocaleString()} <span className="text-sm font-bold">ETB</span>
+                </p>
+                <p className="text-xs text-blue-700 font-medium mt-1">Confirmed Revenue</p>
+              </div>
+            </div>
+
+            {/* Bookings List */}
             <div className="space-y-6">
-              {approvedBookings.map(b => (
-                <div key={b.id} className="bg-white rounded-3xl shadow-sm border border-emerald-200 overflow-hidden">
+              {filteredApproved.map((b, bIdx) => (
+                <div key={b.id} className="bg-white rounded-3xl shadow-sm border-2 border-emerald-200/80 overflow-hidden hover:border-emerald-300 transition-all">
+                  <div className="bg-emerald-50/50 px-6 py-3 border-b border-emerald-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+                    <span className="font-bold text-emerald-900 flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-black">
+                        {bIdx + 1}
+                      </span>
+                      Booking #{b.bookingNumber || b.id.slice(0, 8).toUpperCase()}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      {formatDate(b.createdAt)}
+                    </span>
+                  </div>
+
                   <div className="p-6 md:p-8 flex flex-col md:flex-row md:items-start justify-between gap-8">
-                    
                     {/* User Info & Payment Info */}
                     <div className="flex-1 space-y-6">
                       <div>
@@ -347,7 +482,7 @@ const AdminDashboard: React.FC = () => {
                       <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 max-w-sm">
                         <p className="text-xs font-bold text-slate-400 mb-3 tracking-wider uppercase">Payment Information</p>
                         <div className="space-y-2">
-                          <p className="text-sm text-slate-600 flex justify-between">Method: <span className="font-bold text-slate-900">{b.payment?.paymentMethod}</span></p>
+                          <p className="text-sm text-slate-600 flex justify-between">Method: <span className="font-bold text-slate-900 uppercase">{b.payment?.paymentMethod || 'N/A'}</span></p>
                           <p className="text-sm text-slate-600 flex justify-between">Amount Paid: <span className="font-bold text-emerald-600">{b.totalAmount} ETB</span></p>
                           <p className="text-sm text-slate-600 flex justify-between">Tickets: <span className="font-bold text-slate-900">{b.numberOfTickets}</span></p>
                         </div>
@@ -356,7 +491,9 @@ const AdminDashboard: React.FC = () => {
 
                     {/* Tickets List (QR Codes & Numbers) */}
                     <div className="flex-1">
-                      <p className="text-xs font-bold text-slate-400 mb-3 tracking-wider uppercase">Issued Tickets</p>
+                      <p className="text-xs font-bold text-slate-400 mb-3 tracking-wider uppercase">
+                        Issued Tickets ({b.tickets?.length || b.numberOfTickets})
+                      </p>
                       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                         {b.tickets?.map((t, idx) => (
                           <div key={t.id} className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 p-5 rounded-2xl flex flex-col items-center text-center">
@@ -376,7 +513,7 @@ const AdminDashboard: React.FC = () => {
                             <div className="w-full flex items-center justify-between mt-auto">
                               <div className="text-left">
                                 <p className="text-xs text-slate-500">Passenger</p>
-                                <p className="text-sm font-bold text-slate-800 truncate max-w-[120px]">{b.passengers[idx]?.fullName}</p>
+                                <p className="text-sm font-bold text-slate-800 truncate max-w-[120px]">{b.passengers[idx]?.fullName || b.user.name}</p>
                               </div>
                               <div className="text-right">
                                 <p className="text-xs text-slate-500 mb-1">Status</p>
@@ -390,9 +527,10 @@ const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
               ))}
-              {approvedBookings.length === 0 && (
+
+              {filteredApproved.length === 0 && (
                 <div className="text-center bg-white rounded-3xl border border-slate-200 border-dashed text-slate-500 py-16">
-                   <p className="text-lg font-medium">No approved users yet.</p>
+                   <p className="text-lg font-medium">{approvedSearch ? 'No approved bookings match your search.' : 'No approved users yet.'}</p>
                 </div>
               )}
             </div>
@@ -403,10 +541,13 @@ const AdminDashboard: React.FC = () => {
         {tab === 'users' && (
           <div className="animate-in fade-in duration-300 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <h2 className="text-3xl font-black text-slate-900 font-serif flex items-center gap-3">
-                <span className="text-blue-500">👥</span> Registered Users
-                <span className="text-lg bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-bold">{regularUsers.length}</span>
-              </h2>
+              <div>
+                <h2 className="text-3xl font-black text-slate-900 font-serif flex items-center gap-3">
+                  <span className="text-blue-500">👥</span> Registered Users
+                  <span className="text-lg bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-bold">{regularUsers.length}</span>
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">All customer accounts with ticket counts and booking status</p>
+              </div>
               <div className="relative">
                 <input
                   type="text"
@@ -424,16 +565,22 @@ const AdminDashboard: React.FC = () => {
             </div>
 
             {/* Summary row */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white border border-slate-200 rounded-2xl p-4 text-center shadow-sm">
                 <p className="text-2xl font-black text-slate-900">{regularUsers.length}</p>
                 <p className="text-xs text-slate-500 font-medium mt-1">Total Registered</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-center shadow-sm">
+                <p className="text-2xl font-black text-blue-900">
+                  {regularUsers.reduce((sum, u) => sum + getUserTicketStats(u).confirmedTickets, 0)}
+                </p>
+                <p className="text-xs text-blue-700 font-medium mt-1">Total Tickets Issued</p>
               </div>
               <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center shadow-sm">
                 <p className="text-2xl font-black text-emerald-800">
                   {regularUsers.filter(u => u.bookings.some(b => b.status === 'CONFIRMED')).length}
                 </p>
-                <p className="text-xs text-emerald-700 font-medium mt-1">With Approved Booking</p>
+                <p className="text-xs text-emerald-700 font-medium mt-1">Confirmed Customers</p>
               </div>
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center shadow-sm">
                 <p className="text-2xl font-black text-slate-700">
@@ -454,6 +601,7 @@ const AdminDashboard: React.FC = () => {
                       <th className="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-6 py-4">Name</th>
                       <th className="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-6 py-4">Email</th>
                       <th className="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-6 py-4">Phone</th>
+                      <th className="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-6 py-4">Tickets</th>
                       <th className="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-6 py-4">Bookings</th>
                       <th className="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-6 py-4">Joined</th>
                       <th className="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-6 py-4">Status</th>
@@ -461,6 +609,7 @@ const AdminDashboard: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredUsers.map((u, idx) => {
+                      const { confirmedTickets, pendingTickets } = getUserTicketStats(u);
                       const hasApproved = u.bookings.some(b => b.status === 'CONFIRMED');
                       const hasPending = u.bookings.some(b => b.status === 'PAYMENT_SUBMITTED');
                       return (
@@ -476,6 +625,21 @@ const AdminDashboard: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 text-slate-600 text-sm">{u.email}</td>
                           <td className="px-6 py-4 text-slate-600 text-sm font-mono">{u.phone}</td>
+                          <td className="px-6 py-4">
+                            {confirmedTickets > 0 ? (
+                              <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 shadow-sm">
+                                <Ticket className="w-3.5 h-3.5 text-emerald-600" />
+                                {confirmedTickets} ticket{confirmedTickets !== 1 ? 's' : ''}
+                              </span>
+                            ) : pendingTickets > 0 ? (
+                              <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                {pendingTickets} pending
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-xs font-medium">0 tickets</span>
+                            )}
+                          </td>
                           <td className="px-6 py-4">
                             <span className="bg-slate-100 text-slate-700 text-xs font-bold px-2.5 py-1 rounded-full">
                               {u.bookings.length} booking{u.bookings.length !== 1 ? 's' : ''}
@@ -507,6 +671,7 @@ const AdminDashboard: React.FC = () => {
               {/* Mobile Cards */}
               <div className="sm:hidden divide-y divide-slate-100">
                 {filteredUsers.map((u, idx) => {
+                  const { confirmedTickets, pendingTickets } = getUserTicketStats(u);
                   const hasApproved = u.bookings.some(b => b.status === 'CONFIRMED');
                   const hasPending = u.bookings.some(b => b.status === 'PAYMENT_SUBMITTED');
                   return (
@@ -527,9 +692,23 @@ const AdminDashboard: React.FC = () => {
                         </div>
                         <p className="text-slate-500 text-xs mt-0.5 flex items-center gap-1"><Mail className="w-3 h-3" />{u.email}</p>
                         <p className="text-slate-500 text-xs mt-0.5 flex items-center gap-1"><Phone className="w-3 h-3" />{u.phone}</p>
-                        <div className="flex items-center gap-3 mt-1.5">
-                          <span className="text-slate-400 text-xs flex items-center gap-1"><Ticket className="w-3 h-3" />{u.bookings.length} booking{u.bookings.length !== 1 ? 's' : ''}</span>
-                          <span className="text-slate-400 text-xs flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(u.createdAt)}</span>
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          {confirmedTickets > 0 && (
+                            <span className="bg-emerald-50 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border border-emerald-200">
+                              <Ticket className="w-3 h-3 text-emerald-600" />{confirmedTickets} ticket{confirmedTickets !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                          {pendingTickets > 0 && (
+                            <span className="bg-amber-50 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border border-amber-200">
+                              <Clock className="w-3 h-3 text-amber-600" />{pendingTickets} pending
+                            </span>
+                          )}
+                          <span className="text-slate-400 text-xs flex items-center gap-1">
+                            {u.bookings.length} booking{u.bookings.length !== 1 ? 's' : ''}
+                          </span>
+                          <span className="text-slate-400 text-xs flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />{formatDate(u.createdAt)}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -584,7 +763,7 @@ const AdminDashboard: React.FC = () => {
                         <p className="text-sm text-slate-700 mb-1"><span className="text-slate-400">Journey:</span> <span className="font-semibold">{b.journey?.title || 'N/A'}</span></p>
                         <p className="text-sm text-slate-700 mb-1"><span className="text-slate-400">Tickets:</span> <span className="font-semibold">{b.numberOfTickets}</span></p>
                         <p className="text-sm text-slate-700 mb-1"><span className="text-slate-400">Amount:</span> <span className="font-semibold text-red-600">{b.totalAmount} ETB</span></p>
-                        <p className="text-sm text-slate-700"><span className="text-slate-400">Method:</span> <span className="font-semibold">{b.payment?.paymentMethod || 'N/A'}</span></p>
+                        <p className="text-sm text-slate-700"><span className="text-slate-400">Method:</span> <span className="font-semibold uppercase">{b.payment?.paymentMethod || 'N/A'}</span></p>
                       </div>
 
                       {/* Rejection reason */}
@@ -614,6 +793,18 @@ const AdminDashboard: React.FC = () => {
 
       </div>
 
+      {/* Floating Back to Top Button */}
+      {showBackToTop && (
+        <button
+          onClick={() => contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-6 right-6 z-30 bg-slate-900/90 hover:bg-slate-900 text-white p-3.5 rounded-full shadow-2xl backdrop-blur-sm border border-slate-700 transition-all transform hover:scale-110 flex items-center justify-center gap-1.5 text-xs font-bold"
+          title="Back to top"
+        >
+          <ArrowUp className="w-4 h-4 text-amber-400" />
+          <span className="hidden sm:inline">Top</span>
+        </button>
+      )}
+
       {/* REVIEW MODAL FOR PENDING */}
       {selectedBooking && tab === 'pending' && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
@@ -625,18 +816,147 @@ const AdminDashboard: React.FC = () => {
               </button>
             </div>
             
-            <div className="p-8 space-y-8">
-              <div className="grid grid-cols-2 gap-6">
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">User Information</p>
+            <div className="p-6 sm:p-8 space-y-6">
+              <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-100">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">User Information</p>
                   <p className="font-black text-slate-900 text-lg mb-1">{selectedBooking.user.name}</p>
                   <p className="text-sm text-slate-600 font-medium">{selectedBooking.user.phone}</p>
                 </div>
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Payment Information</p>
+                <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-100">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Payment Information</p>
                   <p className="font-black text-emerald-600 text-xl mb-1">{selectedBooking.totalAmount} ETB</p>
-                  <p className="text-sm text-slate-600 font-medium">Method: {selectedBooking.payment?.paymentMethod}</p>
+                  <p className="text-sm text-slate-600 font-medium">Method: <span className="uppercase font-bold">{selectedBooking.payment?.paymentMethod}</span></p>
                 </div>
+              </div>
+
+              {/* SMART RECEIPT VERIFICATION PANEL (CHECKS RAHEL BERHANE & DATE) */}
+              <div className="rounded-2xl border border-slate-200 p-5 bg-gradient-to-br from-slate-50 to-amber-50/30 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-amber-600" />
+                    <div>
+                      <h4 className="font-black text-slate-900 text-sm">Smart Screenshot Verification</h4>
+                      <p className="text-[11px] text-slate-500">Auto-checks if transferred to Rahel Berhane, date & amount</p>
+                    </div>
+                  </div>
+                  {selectedBooking.payment?.screenshotUrl && (
+                    <button
+                      onClick={() => runReceiptScan(selectedBooking.payment!.screenshotUrl, selectedBooking.totalAmount)}
+                      disabled={scanningReceipt}
+                      className="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors flex items-center gap-1.5 shadow-sm"
+                    >
+                      {scanningReceipt ? <span className="w-3.5 h-3.5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" /> : '🔄 Re-scan'}
+                    </button>
+                  )}
+                </div>
+
+                {scanningReceipt && (
+                  <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 flex items-center gap-3 animate-pulse">
+                    <span className="w-5 h-5 border-3 border-amber-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-amber-900">Scanning screenshot with AI OCR...</p>
+                      <p className="text-[11px] text-amber-700">Checking receiver "Rahel Berhane", transaction date, and amount</p>
+                    </div>
+                  </div>
+                )}
+
+                {!scanningReceipt && receiptScanResult && (
+                  <div className="space-y-3 pt-1">
+                    {/* Main Status Banner with Color Hint */}
+                    <div className={`p-3.5 rounded-xl border flex items-start gap-2.5 ${
+                      receiptScanResult.isRahelBerhane
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                        : 'bg-red-50 border-red-200 text-red-900'
+                    }`}>
+                      {receiptScanResult.isRahelBerhane ? (
+                        <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm">
+                          {receiptScanResult.isRahelBerhane
+                            ? '✓ VERIFIED: Transferred to Rahel Berhane'
+                            : '⚠️ WARNING: Receiver "Rahel Berhane" Not Detected'}
+                        </p>
+                        <p className="text-xs mt-0.5 opacity-90">
+                          {receiptScanResult.isRahelBerhane
+                            ? `Receipt explicitly confirms transfer to ${receiptScanResult.detectedReceiver || 'Rahel Berhane'}.`
+                            : 'Please inspect the screenshot below to verify the recipient before approving.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Hints Grid with Color Indicators */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      {/* Receiver Check Hint */}
+                      <div className={`p-2.5 rounded-xl border flex items-center gap-2 ${
+                        receiptScanResult.isRahelBerhane ? 'bg-emerald-50 border-emerald-200 text-emerald-800 font-semibold' : 'bg-red-50 border-red-200 text-red-800 font-semibold'
+                      }`}>
+                        <span>{receiptScanResult.isRahelBerhane ? '🟢' : '🔴'}</span>
+                        <div className="truncate">
+                          <span>Receiver: </span>
+                          <span className="font-bold">{receiptScanResult.detectedReceiver || (receiptScanResult.isRahelBerhane ? 'Rahel Berhane' : 'Not detected')}</span>
+                        </div>
+                      </div>
+
+                      {/* Date Check Hint */}
+                      <div className={`p-2.5 rounded-xl border flex items-center gap-2 ${
+                        receiptScanResult.detectedDate ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}>
+                        <span>{receiptScanResult.detectedDate ? '🟢' : '⚪'}</span>
+                        <div className="truncate">
+                          <span>Date: </span>
+                          <span className="font-bold">{receiptScanResult.detectedDate || 'Date not detected'}</span>
+                        </div>
+                      </div>
+
+                      {/* Amount Check Hint */}
+                      <div className={`p-2.5 rounded-xl border flex items-center gap-2 ${
+                        receiptScanResult.amountMatches === true ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+                        receiptScanResult.amountMatches === false ? 'bg-amber-50 border-amber-200 text-amber-800' :
+                        'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}>
+                        <span>{receiptScanResult.amountMatches === true ? '🟢' : receiptScanResult.amountMatches === false ? '🟡' : '⚪'}</span>
+                        <div className="truncate">
+                          <span>Amount: </span>
+                          <span className="font-bold">
+                            {receiptScanResult.detectedAmount !== null ? `${receiptScanResult.detectedAmount} ETB` : 'Not detected'}
+                          </span>
+                          {receiptScanResult.amountMatches === true && <span className="ml-1 text-[10px] font-bold bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded">Match!</span>}
+                          {receiptScanResult.amountMatches === false && <span className="ml-1 text-[10px] font-bold bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded">Check</span>}
+                        </div>
+                      </div>
+
+                      {/* Transaction Reference Hint */}
+                      <div className="p-2.5 rounded-xl border bg-blue-50 border-blue-200 text-blue-800 flex items-center gap-2">
+                        <span>🔖</span>
+                        <div className="truncate">
+                          <span>Txn Ref: </span>
+                          <span className="font-bold font-mono">{receiptScanResult.detectedTxnId || selectedBooking.payment?.referenceNumber || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Collapsible raw text */}
+                    {receiptScanResult.rawText && (
+                      <div className="pt-1">
+                        <button
+                          onClick={() => setShowRawOcr(!showRawOcr)}
+                          className="text-[11px] text-slate-500 hover:text-slate-800 underline font-medium"
+                        >
+                          {showRawOcr ? 'Hide raw OCR text' : '📄 View raw OCR text from image'}
+                        </button>
+                        {showRawOcr && (
+                          <div className="mt-2 p-3 bg-slate-900 text-slate-200 text-[11px] font-mono rounded-xl max-h-36 overflow-y-auto whitespace-pre-wrap">
+                            {receiptScanResult.rawText}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -662,7 +982,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-4 pt-4">
+              <div className="space-y-4 pt-2">
                 <button
                   onClick={() => handleVerify(selectedBooking.payment!.id, 'APPROVE')}
                   disabled={actionLoading}
@@ -677,8 +997,8 @@ const AdminDashboard: React.FC = () => {
                     type="text"
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
-                    placeholder="Reason for rejection (e.g. Screenshot blurry, Amount incorrect)"
-                    className="w-full px-5 py-3.5 rounded-xl border border-red-200 mb-4 text-sm focus:ring-4 focus:ring-red-100 focus:border-red-400 font-medium focus:outline-none"
+                    placeholder="Reason for rejection (e.g. Receiver not Rahel Berhane, Screenshot blurry, Amount incorrect)"
+                    className="w-full px-5 py-3.5 rounded-xl border border-red-200 mb-4 text-sm focus:ring-4 focus:ring-red-100 focus:border-red-400 font-medium focus:outline-none bg-white"
                   />
                   <button
                     onClick={() => { if (!rejectReason.trim()) return; handleVerify(selectedBooking.payment!.id, 'REJECT'); }}
